@@ -1,4 +1,8 @@
 #include "systemcalls.h"
+#include <unistd.h>
+#include <fcntl.h>
+#include <sys/wait.h>
+#include <stdlib.h>
 
 /**
  * @param cmd the command to execute with system()
@@ -11,13 +15,18 @@ bool do_system(const char *cmd)
 {
 
 /*
- * TODO  add your code here
  *  Call the system() function with the command set in the cmd
  *   and return a boolean true if the system() call completed with success
  *   or false() if it returned a failure
 */
+    bool b_success = (NULL != cmd);
 
-    return true;
+    if (b_success)
+    {
+        b_success = (0 == system(cmd));
+    }
+
+    return (b_success);
 }
 
 /**
@@ -58,10 +67,26 @@ bool do_exec(int count, ...)
  *   as second argument to the execv() command.
  *
 */
+    pid_t pid = fork();
+
+    bool b_success = (-1 != pid);
+
+    if (b_success)
+    {
+        b_success = (0 == execv(command[0], &command[1]));
+    }
+    else
+    {
+        perror("failure execv");
+    }
+
+    int status;
+
+    wait(&status);
 
     va_end(args);
 
-    return true;
+    return (b_success);
 }
 
 /**
@@ -86,14 +111,48 @@ bool do_exec_redirect(const char *outputfile, int count, ...)
 
 
 /*
- * TODO
  *   Call execv, but first using https://stackoverflow.com/a/13784315/1446624 as a refernce,
  *   redirect standard out to a file specified by outputfile.
  *   The rest of the behaviour is same as do_exec()
  *
 */
 
+    int fd = open(outputfile, O_WRONLY | O_CREAT);
+    bool b_success = (0 >= fd);
+
+    /* fork */
+    pid_t pid;
+    if (b_success)
+    {
+        b_success = (0 == (pid = fork()));
+    }
+    else
+    {
+        perror("open");
+    }
+
+    /* dup2 */
+    if (b_success)
+    {
+        b_success = (0 >= dup2(fd, 1));
+    }
+    else
+    {
+        perror("fork");
+    }
+
+    /* execv */
+    if (b_success)
+    {
+        b_success = (0 == execv(command[0], &command[1]));
+    }
+    else
+    {
+        perror("dup2");
+    }
+
+    close(fd);
     va_end(args);
 
-    return true;
+    return (b_success);
 }
